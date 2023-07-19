@@ -24,7 +24,7 @@ func main() {
 
 	app := &cli.App{
 		Name:  "server",
-		Usage: "server runs demo raft protocol",
+		Usage: "server runs demo raft leader election protocol",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "config",
@@ -43,37 +43,41 @@ func main() {
 			return nil
 		},
 		Action: func(ctx *cli.Context) error {
-			slog.Info("server running with configuration", "cfg", cfg)
-			srv := server.New(cfg)
-
-			done := make(chan os.Signal, 1)
-			signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-			go func() {
-				if err := srv.Start(goCtx); err != nil && err != http.ErrServerClosed {
-					slog.Error("server stopped", "error", err)
-				}
-			}()
-			log.Print("Server Started")
-
-			<-done
-
-			goCtx, cancel := context.WithTimeout(goCtx, 5*time.Second)
-			defer func() {
-				cancel()
-			}()
-
-			if err := srv.Shutdown(goCtx); err != nil {
-				log.Fatalf("Server shutdown failed:%+v", err)
-			}
-			log.Print("Server shutdown gracefully")
-			return nil
+			return runServer(goCtx, cfg)
 		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func runServer(ctx context.Context, cfg server.Config) error {
+	slog.Info("server running with configuration", "cfg", cfg)
+	srv := server.New(cfg)
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		if err := srv.Start(ctx); err != nil && err != http.ErrServerClosed {
+			slog.Error("server stopped", "error", err)
+		}
+	}()
+	log.Print("Server Started")
+
+	<-done
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer func() {
+		cancel()
+	}()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server shutdown failed:%+v", err)
+	}
+	log.Print("Server shutdown gracefully")
+	return nil
 }
 
 func loadConfig(cfgFile string) (cfg server.Config, err error) {

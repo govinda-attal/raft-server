@@ -38,7 +38,7 @@ func New(cfg Config) *Server {
 		scheduler: tasks.New(),
 	}
 
-	s.app.Post("/leader/heartbeat", s.LeaderHeartBeat)
+	s.app.Post("/leader/heartbeat", s.LeaderHeartbeat)
 	s.app.Post("/candidate/proposal", s.CandidateProposal)
 
 	_ = s.scheduler.AddWithID(ScheduleLeaderHeartbeatTimeout, &tasks.Task{

@@ -7,13 +7,16 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-func (s *Server) LeaderHeartBeat(c *fiber.Ctx) error {
+// LeaderHeartbeat handles incoming heartbeat signal from Leader node.
+// This handler function will refresh leader_heartbeat_timeout scheduled task.
+// Heartbeat is rejected if the term argument within incoming term is less than current term of the node.
+func (s *Server) LeaderHeartbeat(c *fiber.Ctx) error {
 	var rq HeartbeatRq
 	if err := c.BodyParser(&rq); err != nil {
 		return err
 	}
 	rs := HeartbeatRs{
-		Ack:  s.processHeartBeat(rq.Leader, rq.Term),
+		Ack:  s.processHeartbeat(rq.Leader, rq.Term),
 		Node: s.cfg.Node,
 	}
 
@@ -26,7 +29,7 @@ func (s *Server) LeaderHeartBeat(c *fiber.Ctx) error {
 	return c.Status(fasthttp.StatusPreconditionFailed).JSON(&rs)
 }
 
-func (s *Server) processHeartBeat(leader string, term int) bool {
+func (s *Server) processHeartbeat(leader string, term int) bool {
 	s.mtex.Lock()
 	defer s.mtex.Unlock()
 	if term < s.term {
@@ -45,6 +48,8 @@ func (s *Server) processHeartBeat(leader string, term int) bool {
 	return true
 }
 
+// CandidateProposal handles incoming proposal request from a candidate node.
+// This handler function will acknowledge and become a follower
 func (s *Server) CandidateProposal(c *fiber.Ctx) error {
 	var rq CandidateProposalRq
 	if err := c.BodyParser(&rq); err != nil {
@@ -69,7 +74,7 @@ func (s *Server) CandidateProposal(c *fiber.Ctx) error {
 func (s *Server) processCandidateProposal(candidate string, term int) bool {
 	s.mtex.Lock()
 	defer s.mtex.Unlock()
-	if term < s.term {
+	if term <= s.term {
 		return false
 	}
 	s.nodeType = NodeTypeFollower
