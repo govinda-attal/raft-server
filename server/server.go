@@ -26,8 +26,8 @@ type Server struct {
 	cfg       Config
 	app       *fiber.App
 	scheduler *tasks.Scheduler
-	candidate string
 	leader    string
+	term      int
 }
 
 func New(cfg Config) *Server {
@@ -40,7 +40,6 @@ func New(cfg Config) *Server {
 
 	s.app.Post("/leader/heartbeat", s.LeaderHeartBeat)
 	s.app.Post("/candidate/proposal", s.CandidateProposal)
-	s.app.Post("/candidate/leader-commit", s.LeaderCommit)
 
 	_ = s.scheduler.AddWithID(ScheduleLeaderHeartbeatTimeout, &tasks.Task{
 		Interval: cfg.LeaderHeartbeatTimeout,
